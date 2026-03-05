@@ -113,7 +113,7 @@ Resources:
         - AttributeName: awardId
           AttributeType: S
         - AttributeName: occurredAt
-          AttributeType: S
+          AttributeType: N
       KeySchema:
         - AttributeName: userId
           KeyType: HASH
