@@ -30,7 +30,7 @@
   },
   "GlobalSecondaryIndexes": [
     {
-      "IndexName": "userId-occurredAt-index",
+      "IndexName": "GSI1-userId-occurredAt",
       "KeySchema": [
         {
           "AttributeName": "userId",
