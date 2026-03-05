@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  CFM User Rewards Service — awards points and aggregates action stats
+  from StatusUpdateCreated events.
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Architectures:
+      - x86_64
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        DEPLOYMENT_TARGET: !Ref DeploymentTarget
+        USER_ACTION_STATS_TABLE: !Sub user_action_stats_${Environment}
+        USER_POINTS_HISTORY_TABLE: !Sub user_points_history_${Environment}
+    LoggingConfig:
+      LogFormat: JSON
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  DeploymentTarget:
+    Type: String
+    Description: Choose between local or AWS deployment
+    Default: aws
+    AllowedValues:
+      - local
+      - aws
+
+Resources:
+
+  # ──────────────────────────────────────────────────────────────
+  # DLQ for failed consumer invocations
+  # ──────────────────────────────────────────────────────────────
+  RewardsConsumerDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "user-rewards-dlq-${Environment}"
+      MessageRetentionPeriod: 1209600   # 14 days
+
+  # ──────────────────────────────────────────────────────────────
+  # Lambda — Health Check Lambda Function
+  # ──────────────────────────────────────────────────────────────
+
+  # HelloWorldFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: functions/hello_world/
+  #     Handler: app.lambda_handler
+  #     Events:
+  #       HelloWorld:
+  #         Type: HttpApi
+  #         Properties:
+  #           ApiId: !Ref UserHttpApi
+  #           Path: /hello
+  #           Method: get
+  #           Auth:
+  #             Authorizer: NONE  # Public endpoint for health checks
+  # ──────────────────────────────────────────────────────────────
+  # Lambda — Rewards Consumer
+  # ──────────────────────────────────────────────────────────────
+  UserRewardsConsumerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "user-rewards-consumer-${Environment}"
+      CodeUri: functions/fridge_report_consumer/
+      Handler: app.handler
+      Description: Consumes FridgeReportUpdated events and awards points.
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt RewardsConsumerDLQ.Arn
+      Environment:
+        Variables:
+          HISTORY_TABLE: !Ref UserPointsHistoryTable
+          STATS_TABLE: !Ref UserActionStatsTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserPointsHistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserActionStatsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt RewardsConsumerDLQ.QueueName
+      Events:
+        StatusUpdateCreated:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !ImportValue
+              Fn::Sub: "FridgeReportEventBusName-${Environment}"
+            Pattern:
+              detail-type:
+                - FridgeReportUpdated
+
+  # ──────────────────────────────────────────────────────────────
+  # DynamoDB — UserPointsHistory
+  # ──────────────────────────────────────────────────────────────
+  UserPointsHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "user_points_history_${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      TableClass: STANDARD
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: awardId
+          AttributeType: S
+        - AttributeName: occurredAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: awardId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1-userId-occurredAt
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: occurredAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # ──────────────────────────────────────────────────────────────
+  # DynamoDB — UserActionStats
+  # ──────────────────────────────────────────────────────────────
+  UserActionStatsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "user_action_stats_${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+
+Outputs:
+  UserPointsHistoryTableName:
+    Description: UserPointsHistory DynamoDB table name
+    Value: !Ref UserPointsHistoryTable
+    Export:
+      Name: !Sub "user_points_history_${Environment}"
+
+  UserActionStatsTableName:
+    Description: UserActionStats DynamoDB table name
+    Value: !Ref UserActionStatsTable
+    Export:
+      Name: !Sub "user_action_stats_${Environment}"
+
+  RewardsConsumerDLQUrl:
+    Description: URL of the Consumer DLQ
+    Value: !Ref RewardsConsumerDLQ
+    Export:
+      Name: !Sub "${AWS::StackName}-DLQUrl"

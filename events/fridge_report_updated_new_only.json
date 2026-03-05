@@ -1,0 +1,15 @@
+{
+  "version": "0",
+  "id": "c1e2f3a4-5b6c-7d8e-9f0a-example67890",
+  "source": "cfm.fridge",
+  "account": "123456789012",
+  "time": "2026-03-03T13:00:00Z",
+  "region": "us-east-1",
+  "detail-type": "FridgeReportUpdated",
+  "resources": [],
+  "detail": {
+    "userId": "greenpointfridge",
+    "newReport": "{\"fridgeId\":\"greenpointfridge\",\"epochTimestamp\":\"1762032699\",\"condition\":\"good\",\"foodPercentage\":2}",
+    "previousReport": "<null>"
+  }
+}

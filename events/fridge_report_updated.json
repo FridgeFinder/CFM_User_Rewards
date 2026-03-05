@@ -1,0 +1,15 @@
+{
+  "version": "0",
+  "id": "b9f0a9fc-3b15-4b7e-a88e-example12345",
+  "source": "cfm.fridge",
+  "account": "123456789012",
+  "time": "2026-03-03T12:34:56Z",
+  "region": "us-east-1",
+  "detail-type": "FridgeReportUpdated",
+  "resources": [],
+  "detail": {
+    "userId": "greenpointfridge",
+    "newReport": "{\"fridgeId\":\"greenpointfridge\",\"epochTimestamp\":\"1762032699\",\"condition\":\"good\",\"foodPercentage\":2}",
+    "previousReport": "{\"fridgeId\":\"greenpointfridge\",\"epochTimestamp\":\"1700000000\",\"condition\":\"dirty\",\"foodPercentage\":0}"
+  }
+}
