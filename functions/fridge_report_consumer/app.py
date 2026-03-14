@@ -4,8 +4,11 @@ from __future__ import annotations
 from typing import Any, List
 from logging_utils import configure_logging, get_logger
 from rules import ACTION_TYPES, get_fridge_report_awards
+from dynamo import *
 import os
 import boto3
+import json
+import uuid
 
 
 def get_ddb_client() -> boto3.client:
@@ -40,12 +43,33 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     # if user_id is missing, skip processing
     # NOTE: userId can be "<null>" if the report is made by a user that's not logged in
     # NOTE: should we keep track of anonymous user activity? I think so..
-    # TODO: create user "Anonymous_Neighbor" and use that userId in the statusReport
-    # NOTE: Don't have to do anything here.. FridgeReport can handle that but keeping note here in case we forget
     # NOTE: it's possible newReport and previousReport are the same, if that occurs you can skip processing
     user_id = detail.get("userId", "<null>")
     new_report = detail.get("newReport", "<null>")
     previous_report = detail.get("previousReport", "<null>")
+    if if not user_id:
+        return {"skipped": True}
+        
+# 1. convert the string to json
+    json_user_id = json.loads(user_id)
+    json_new_report = json.loads(new_report)
+    json_previous_report = json.loads(previous_report)
+
+    if (json_new_report != json_previous_report) {
+        return {"skipped": True}
+    }
+# 2. generate the award id using AWARD#STATUS_UPDATE#FRIDGE#{fridgeId}#TS#{timestamp}
+    award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{json_new_report[fridge_id]}#TS#{json_new_report[epochTimestamp]}"
+
+    # get the list of ACTION TYPES using the  (rules.py) function, get fridge report awards
+    awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
+
+# 3. Write to the user_points_history table. if the history write succeeds, then update the user_action_stats table
+    # write to user points history table ( dynamo.py ), if successful, then update the user_action_stats table
+    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, new_report, list_awards):
+        update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, list_awards)
+
+# maybe convert the null to none, if its null we want to skip procedure because we dont want to report
 
     log.info(
         "FridgeReportUpdated received",
@@ -58,8 +82,4 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
             "user_action_stats_table": user_action_stats_table_name,
         },
     )
-
-    awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
-    # TODO: write to user_points_history table. If history write succeeds, update user_action_stats table
-
     return {"requestId": request_id, "userId": user_id, "awards": awards}
