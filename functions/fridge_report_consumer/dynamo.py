@@ -4,22 +4,25 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-
 from functions.fridge_report_consumer.rules import ACTION_TYPES
-
+from datetime import datetime
 log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
 # UserPointsHistory
 # ---------------------------------------------------------------------------
+
+
+# write to the database, return true if item written successfully, false if not
+#  writing to the dynamo db database
 def write_user_points_history(
     client,
     table_name: str,
     user_id: str,
     award_id: str,
-    user_action: dict,
-    awards: list[ACTION_TYPES],
+    new_report: dict, 
+    awards: list[ACTION_TYPES], 
 ) -> dict:
     # awardId generated awardId, example: STATUS_UPDATE#FRIDGE#{fridgeId}#TS#{epochTimestamp}
     # NOTE: user_action: we can save this as a string or a map. I think map?
@@ -36,7 +39,27 @@ def write_user_points_history(
     Raises:
         ClientError for errors other than ConditionalCheckFailedException.
     """
-    pass
+    # if 2 different ACTION TYPES Logged for the user in the singular
+    # log of the event, then we want to sum the total points.
+
+    # compute the total points, if the user had more than one action type, 
+    # sum to get the total points that should be added for the singular event
+    total = 0
+    for action in awards: 
+        total += action.value["points"]
+    try:
+        conditionalUpdateResponse = client.put_item(TableName = table_name, Item={'userId': user_id, 'awardId': award_id, 'occuredAt': new_report[epochTimestamp], 'createdAt': dateTime.now().timestamp(), 
+        'actionTypes': awards, 'points': total, 'newReport': new_report }, ConditionExpression: 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)')
+    except botocore.exceptions.ClientError as x:
+        errorCode = x.response.get("Error", {}).get("Code")
+        if errorCode == "ConditionalCheckFailedException":
+            print(e)
+            raise
+        # handle condition failed
+        else: 
+            print("A client error occurred")
+            raise
+        # handle other ClientErrors
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +75,17 @@ def update_user_action_stats(
     Returns:
         The full, updated stats item
     """
+    # // automic write, if two lambdas initiated at the same time, and both are trying to add to the database
+    # // at the same time, so that there is no overwrite happening
+    # // iterate through action types and cummulate points user has accumulated and update counts
+    # // return the updated count
+    total = 0
+    for action in awards: 
+        total += action.value["points"]
+    client.update_item(TableName = table_name, Key ={"userId": {"S": user_id}}, 
+    UpdateExpression: 
+    )
+    
     return _dynamo_item_to_dict()
 
 
