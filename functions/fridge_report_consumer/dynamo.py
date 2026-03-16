@@ -45,12 +45,16 @@ def write_user_points_history(
     # compute the total points, if the user had more than one action type, 
     # sum to get the total points that should be added for the singular event
     total = 0
+    # compute points totaled
     for action in awards: 
         total += action.value["points"]
     try:
+        # use a condition check to make sure both the user_id and award_id are unique pair
         conditionalUpdateResponse = client.put_item(TableName = table_name, Item={'userId': user_id, 'awardId': award_id, 'occuredAt': new_report[epochTimestamp], 'createdAt': dateTime.now().timestamp(), 
         'actionTypes': awards, 'points': total, 'newReport': new_report }, ConditionExpression: 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)')
     except botocore.exceptions.ClientError as x:
+        # if the error was a conditional exception, specify, otherwise they are all considered
+        # to be client errors
         errorCode = x.response.get("Error", {}).get("Code")
         if errorCode == "ConditionalCheckFailedException":
             print(e)
@@ -79,14 +83,36 @@ def update_user_action_stats(
     # // at the same time, so that there is no overwrite happening
     # // iterate through action types and cummulate points user has accumulated and update counts
     # // return the updated count
+
+    # Keep track of the total points that the user earned
     total = 0
+    # 1. For each of the different action count names, add to a list
+    # to later automically write them and update in the database
+    update_counters = []
+    # Total points
     for action in awards: 
         total += action.value["points"]
-    client.update_item(TableName = table_name, Key ={"userId": {"S": user_id}}, 
-    UpdateExpression: 
+        counter = action.value["action_count_name"]
+        # for each counter for the action, we want to increment by 1 if alr seen,
+        # otherwise, is 0
+        update_counters.append(f"{counter} = if_not_exists({counter}, :zero) + :inc")
+    # for the atiomic write - we want to total the points and add to that the update
+    # of whichever counters were seen when going through awards
+    update_expression = ("SET totalPoints = if_not_exists(totalPoints, :zero) + :total, "
+    +", ".join(update_counters))
+#Use of an update item here with the table name, and witht he respective user id. 
+# we want to update the total count and all of the counters of the different action
+# items that were found, by 1. Expression attribute values specified 
+    response = client.update_item(TableName = table_name, Key ={"userId": {"S": user_id}}, 
+        UpdateExpression=update_expression,
+            ExpressionAttributeValues= {
+                ':inc': {"N": "1"},
+                ':zero': {"N": "0"}, 
+                ':total': {"N": str(total)}
+        }
     )
     
-    return _dynamo_item_to_dict()
+    return _dynamo_item_to_dict(response["Attributes"])
 
 
 # ---------------------------------------------------------------------------
