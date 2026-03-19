@@ -49,7 +49,7 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     previous_report = detail.get("previousReport", "<null>")
     if if not user_id:
         return {"skipped": True}
-        
+
 # 1. convert the string to json
     json_user_id = json.loads(user_id)
     json_new_report = json.loads(new_report)
@@ -66,7 +66,7 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
 
 # 3. Write to the user_points_history table. if the history write succeeds, then update the user_action_stats table
     # write to user points history table ( dynamo.py ), if successful, then update the user_action_stats table
-    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, new_report, list_awards):
+    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, json_new_report, list_awards):
         update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, list_awards)
 
 # maybe convert the null to none, if its null we want to skip procedure because we dont want to report
