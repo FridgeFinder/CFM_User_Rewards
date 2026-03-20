@@ -63,7 +63,7 @@ class TestProcessEvent:
         
         # expected functionality is to run as usual since should continue even if the 
         # user is null
-def test_processes_event_nullUser(self, mock_awards, mock_update, mock_write):
+    def test_processes_event_null_user(self, mock_awards, mock_update, mock_write):
         
         event = {
             "detail": {
@@ -84,5 +84,5 @@ def test_processes_event_nullUser(self, mock_awards, mock_update, mock_write):
     }
 
         result = _process_event(event, "test-2")
-        assert result == {"skipped": True}
+        assert result == {"requestId": "test-2", "userId": "<null>", "awards":[{"points": 15}]}
         
