@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from enum import Enum
-from models import AwardResult
+from .models import AwardResult
 import json
 
 """

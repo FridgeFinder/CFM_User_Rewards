@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 from typing import Any, List
-from logging_utils import configure_logging, get_logger
-from rules import ACTION_TYPES, get_fridge_report_awards
-from dynamo import *
+from .logging_utils import configure_logging, get_logger
+from .rules import ACTION_TYPES, get_fridge_report_awards
+from .dynamo import *
 import os
 import boto3
 import json
@@ -65,8 +65,8 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
 
 # 3. Write to the user_points_history table. if the history write succeeds, then update the user_action_stats table
     # write to user points history table ( dynamo.py ), if successful, then update the user_action_stats table
-    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, json_new_report, list_awards):
-        update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, list_awards)
+    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, json_new_report, awards):
+        update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, awards)
 
 # maybe convert the null to none, if its null we want to skip procedure because we dont want to report
 

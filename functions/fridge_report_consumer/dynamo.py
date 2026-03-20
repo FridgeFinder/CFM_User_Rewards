@@ -7,7 +7,7 @@ from typing import Any
 from functions.fridge_report_consumer.rules import ACTION_TYPES
 from datetime import datetime
 log = logging.getLogger(__name__)
-
+import botocore.exceptions
 
 # ---------------------------------------------------------------------------
 # UserPointsHistory
@@ -50,20 +50,21 @@ def write_user_points_history(
         total += action.value["points"]
     try:
         # use a condition check to make sure both the user_id and award_id are unique pair
-        conditionalUpdateResponse = client.put_item(TableName = table_name, Item={'userId': user_id, 'awardId': award_id, 'occuredAt': new_report[epochTimestamp], 'createdAt': dateTime.now().timestamp(), 
-        'actionTypes': awards, 'points': total, 'newReport': new_report }, ConditionExpression: 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)')
+        conditionalUpdateResponse = client.put_item(TableName = table_name, Item={"userId": user_id, "awardId": award_id, "occuredAt": new_report["epochTimestamp"], "createdAt": datetime.now().timestamp(), 
+        "actionTypes": awards, "points": total, "newReport": new_report }, ConditionExpression= 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)')
+        return True
     except botocore.exceptions.ClientError as x:
         # if the error was a conditional exception, specify, otherwise they are all considered
         # to be client errors
         errorCode = x.response.get("Error", {}).get("Code")
         if errorCode == "ConditionalCheckFailedException":
-            print(e)
-            raise
+            print(x)
+            return False
         # handle condition failed
-        else: 
+        else:
             print("A client error occurred")
             raise
-        # handle other ClientErrors
+            return False        # handle other ClientErrors
 
 
 # ---------------------------------------------------------------------------

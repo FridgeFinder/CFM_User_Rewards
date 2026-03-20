@@ -1,6 +1,6 @@
 """Unit tests for rules.py"""
 
-from rules import get_fridge_report_awards
+from functions.fridge_report_consumer.rules import get_fridge_report_awards
 
 
 class TestGetFridgeReportAwards:
