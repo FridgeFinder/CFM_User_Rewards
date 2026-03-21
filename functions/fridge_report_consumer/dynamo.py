@@ -50,8 +50,15 @@ def write_user_points_history(
         total += action.value["points"]
     try:
         # use a condition check to make sure both the user_id and award_id are unique pair
-        conditionalUpdateResponse = client.put_item(TableName = table_name, Item={"userId": user_id, "awardId": award_id, "occuredAt": new_report["epochTimestamp"], "createdAt": datetime.now().timestamp(), 
-        "actionTypes": awards, "points": total, "newReport": new_report }, ConditionExpression= 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)')
+        conditionalUpdateResponse = client.put_item(TableName = table_name, Item={
+        "user_id": _python_to_dynamo(user_id),
+        "award_id": _python_to_dynamo(award_id),
+        "occuredAt": _python_to_dynamo(new_report["epochTimestamp"]),
+        "createdAt": _python_to_dynamo(int(datetime.now().timestamp())),
+        "actionTypes": _python_to_dynamo([a.name for a in awards]),
+        "points": _python_to_dynamo(total),
+        "newReport": _python_to_dynamo(new_report)
+        }, ConditionExpression= 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)')
         return True
     except botocore.exceptions.ClientError as x:
         # if the error was a conditional exception, specify, otherwise they are all considered
@@ -104,7 +111,7 @@ def update_user_action_stats(
 #Use of an update item here with the table name, and witht he respective user id. 
 # we want to update the total count and all of the counters of the different action
 # items that were found, by 1. Expression attribute values specified 
-    response = client.update_item(TableName = table_name, Key ={"userId": {"S": user_id}}, 
+    response = client.update_item(TableName = table_name, Key ={"user_id": {"S": user_id}}, 
         UpdateExpression=update_expression,
             ExpressionAttributeValues= {
                 ':inc': {"N": "1"},
