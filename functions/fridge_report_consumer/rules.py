@@ -49,8 +49,8 @@ def get_fridge_report_awards(
     old_cond = json_previous_report["condition"]
 
     new_percentage = json_new_report["foodPercentage"]
-    old_percentage = json_previous_report["foodPercentage"]
-# create list of action types based on conditions and percentage of food old vs. new
+    old_percentage = json_previous_report.get("foodPercentage", 0)
+    # create list of action types based on conditions and percentage of food old vs. new
      #dirty -> cleaned: should be FRIDGE_CLEANED
     #needs repairs -> good: should be FRIDGE_REPAIRED
     #any report: should be FRIDGE_REPORT
