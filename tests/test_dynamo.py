@@ -44,3 +44,34 @@ class TestGetFridgeReportAwards:
         item = response.get("Item")
         assert item["user_id"]["S"] == "user1"
         assert item["award_id"]["S"] == "award1"
+
+
+
+    @mock_aws
+    def test_update_user_action_stats(self):
+        client = boto3.client('dynamodb')
+        awardListMock = [ACTION_TYPES.FRIDGE_CLEANED]
+
+        client.create_table(
+            TableName = "test_table", 
+            KeySchema = [{"AttributeName": "user_id", "KeyType": "HASH"}, 
+            ],
+            AttributeDefinitions = [
+                {"AttributeName": "user_id", "AttributeType": "S"},
+            ],
+            BillingMode="PAY_PER_REQUEST"
+            )
+        update_user_action_stats(client, "test_table", "user1", awardListMock)
+        update_user_action_stats(client, "test_table", "user1", awardListMock)
+
+        response = client.get_item(TableName = "test_table", 
+            Key={
+                "user_id": {"S":"user1"}
+            }
+        )
+
+        item = response["Item"]
+
+        expected_total = (ACTION_TYPES.FRIDGE_CLEANED.value["points"] * 2)
+        assert int(item["totalPoints"]["N"]) == expected_total
+
