@@ -47,8 +47,8 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     user_id = detail.get("userId", "<null>")
     new_report = detail.get("newReport", "<null>")
     previous_report = detail.get("previousReport", "<null>")
-    if not user_id:
-        return {"skipped": True}
+    if user_id == "<null>":
+        return {"skipped": True, "requestId": request_id, "message": "user id is null"}
 
 # 1. convert the string to json
     # json_user_id = json.loads(user_id)
@@ -56,7 +56,7 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     json_previous_report = json.loads(previous_report)
 
     if (json_new_report == json_previous_report):
-        return {"skipped": True}
+        return {"skipped": True, "requestId": request_id, "message": "new and old report are the same"}
     
 # 2. generate the award id using AWARD#STATUS_UPDATE#FRIDGE#{fridgeId}#TS#{timestamp}
     award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{json_new_report['fridgeId']}#TS#{json_new_report['epochTimestamp']}"

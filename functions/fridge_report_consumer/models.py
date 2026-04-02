@@ -15,7 +15,8 @@ class AwardResult(TypedDict):
 # Model
 class UserPointsHistoryItem(TypedDict):
     """Item shape for UserPointsHistory."""
-
+    awardId: str
+    newReport: dict
     userId: str
     action_types: list[str]
     points: int

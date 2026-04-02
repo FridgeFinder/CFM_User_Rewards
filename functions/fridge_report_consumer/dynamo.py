@@ -8,7 +8,7 @@ from functions.fridge_report_consumer.rules import ACTION_TYPES
 from datetime import datetime
 log = logging.getLogger(__name__)
 import botocore.exceptions
-
+from models import UserPointsHistoryItem
 # ---------------------------------------------------------------------------
 # UserPointsHistory
 # ---------------------------------------------------------------------------
@@ -25,8 +25,7 @@ def write_user_points_history(
     awards: list[ACTION_TYPES], 
 ) -> dict:
     # awardId generated awardId, example: STATUS_UPDATE#FRIDGE#{fridgeId}#TS#{epochTimestamp}
-    # NOTE: user_action: we can save this as a string or a map. I think map?
-    # NOTE: user_action is new_report
+
     """Conditionally write a points record.
 
     Uses a ConditionExpression to prevent duplicate awards for the same
@@ -49,28 +48,31 @@ def write_user_points_history(
     for action in awards: 
         total += action.value["points"]
     try:
+        item: UserPointsHistoryItem = {
+        "userId": user_id,
+        "awardId": award_id,
+        "newReport": new_report,
+        "action_types": list(awards),
+        "points": total,
+        "occurredAt": int(new_report["epochTimestamp"]),
+        "createdAt": datetime.utcnow().isoformat(),  # cleaner than int→str
+        }
         # use a condition check to make sure both the user_id and award_id are unique pair
-        conditionalUpdateResponse = client.put_item(TableName = table_name, Item={
-        "user_id": _python_to_dynamo(user_id),
-        "award_id": _python_to_dynamo(award_id),
-        "occuredAt": _python_to_dynamo(new_report["epochTimestamp"]),
-        "createdAt": _python_to_dynamo(int(datetime.now().timestamp())),
-        "actionTypes": _python_to_dynamo([a.name for a in awards]),
-        "points": _python_to_dynamo(total),
-        "newReport": _python_to_dynamo(new_report)
-        }, ConditionExpression= 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)')
+        conditionalUpdateResponse = client.put_item(TableName = table_name, 
+        Item =_to_dynamo_item(item), 
+        ConditionExpression= 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)'
+        )
         return True
     except botocore.exceptions.ClientError as x:
         # if the error was a conditional exception, specify, otherwise they are all considered
         # to be client errors
         errorCode = x.response.get("Error", {}).get("Code")
         if errorCode == "ConditionalCheckFailedException":
-            print(x)
+            logger.exception("A Conditional Check Failed Exception Occurred")
             return False
         # handle condition failed
         else:
-            print("A client error occurred")
-            raise
+            logger.exception("A client error occurred")
             return False        # handle other ClientErrors
 
 
@@ -81,38 +83,26 @@ def update_user_action_stats(
     client, table_name: str, user_id: str, awards: list[ACTION_TYPES]
 ) -> dict:
     """Atomically increment UserActionStats for a user.
-    #TODO: implement
-    #NOTE: for reference: https://oneuptime.com/blog/post/2026-02-12-dynamodb-atomic-counters/view
-    #NOTE: use whichever expression makes sense for your use case
+   
     Returns:
         The full, updated stats item
     """
-    # // automic write, if two lambdas initiated at the same time, and both are trying to add to the database
-    # // at the same time, so that there is no overwrite happening
-    # // iterate through action types and cummulate points user has accumulated and update counts
-    # // return the updated count
 
-    # Keep track of the total points that the user earned
     total = 0
-    # 1. For each of the different action count names, add to a list
-    # to later automically write them and update in the database
     update_counters = []
-    # Total points
     for action in awards: 
         total += action.value["points"]
-        counter = action.value["action_count_name"]
-        # for each counter for the action, we want to increment by 1 if alr seen,
-        # otherwise, is 0
-        update_counters.append(f"{counter} = if_not_exists({counter}, :zero) + :inc")
-    # for the atiomic write - we want to total the points and add to that the update
-    # of whichever counters were seen when going through awards
+        action_count_name = action.value["action_count_name"]
+ 
+        update_counters.append(f"{action_count_name} = if_not_exists({action_count_name}, :zero) + :inc")
+
     update_expression = ("SET totalPoints = if_not_exists(totalPoints, :zero) + :total, "
     +", ".join(update_counters))
-#Use of an update item here with the table name, and witht he respective user id. 
-# we want to update the total count and all of the counters of the different action
-# items that were found, by 1. Expression attribute values specified 
-    response = client.update_item(TableName = table_name, Key ={"user_id": {"S": user_id}}, 
-        UpdateExpression=update_expression,
+
+    response = client.update_item(
+            TableName = table_name, 
+            Key ={"user_id": {"S": user_id}}, 
+            UpdateExpression=update_expression,
             ExpressionAttributeValues= {
                 ':inc': {"N": "1"},
                 ':zero': {"N": "0"}, 
