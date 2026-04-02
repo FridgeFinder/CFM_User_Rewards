@@ -10,6 +10,11 @@ import json
 To reward people who make these specific status updates? 
 """
 
+class StatusReport(TypedDict):
+    fridgeId: str
+    epochTimestamp: int
+    condition: str
+    foodPercentage: int
 
 class ACTION_TYPES(Enum):
     FRIDGE_CLEANED = AwardResult(points=15, action_count_name="cleanedCount")
@@ -17,21 +22,23 @@ class ACTION_TYPES(Enum):
     FRIDGE_REPAIRED = AwardResult(points=25, action_count_name="repairedCount")
     FRIDGE_REPORT = AwardResult(points=5, action_count_name="fridgeReportCount")
 
+# Function takes in the new Report / old Report and returns a status report 
+# with the fridgeId, timestamp, condiiton, and food percentage.
 def parse_report(raw: str | None) -> dict | None:
     if not raw or raw == "<null>":
         return None
 
-    report = json.loads(raw)
+    data = json.loads(raw)
+
     return {
-        "condition": report.get("condition"),
-        "foodPercentage": report.get("foodPercentage", 0),
+        "fridgeId": data.get("fridgeId", ""),
+        "epochTimestamp": int(data.get("epochTimestamp", 0)),
+        "condition": data.get("condition", ""),
+        "foodPercentage": int(data.get("foodPercentage", 0)),
     }
-# where the comparing is happening based on the 4 action types
-# return a list of actin types, if a user has done 2 actions, return a list of action types, 
-# based on the condition and the food percentage
-# if good and filled and before it was dirty, it would return 2 things, since two actions
-def get_fridge_report_awards(
-    new_report: dict, previous_report: dict
+
+def get_fridge_resort_awards(
+    new_report: StatusReport, previous_report: StatusReport | None,
 ) -> list[ACTION_TYPES]:
     """
     TODO: implement logic to compare new_report and previous_report and return a list of AwardResult
@@ -44,25 +51,13 @@ def get_fridge_report_awards(
     #combine condition and foodPercentage to get double points: cleaned + filled, repaired + filled
     """
     list_action_types = []
-    # 1. convert the previous and new report to a dict to access the condition + foodPercentage fields
-    # in the case that the previous report is null
-    # if (previous_report == "<null>"):
-    #     json_previous_report = {}
-    # else:
-    #     json_previous_report = json.loads(previous_report)
 
-   # json_new_report = json.loads(new_report)
+    new_cond = new_report["condition"]
+    old_cond = previous_report["condition"]
+    new_percentage = new_report["foodPercentage"]
+    old_percentage = previous_report["foodPercentage"]
 
-    new_cond = json_new_report["condition"]
-    old_cond = json_previous_report["condition"]
-    new_percentage = json_new_report["foodPercentage"]
-    old_percentage = json_previous_report.get("foodPercentage", 0)
-    # create list of action types based on conditions and percentage of food old vs. new
-     #dirty -> cleaned: should be FRIDGE_CLEANED
-    #needs repairs -> good: should be FRIDGE_REPAIRED
-    #any report: should be FRIDGE_REPORT
-
- # 1. food level > 0: should be FRIDGE_FILLED 
+# 1. food level > 0: should be FRIDGE_FILLED 
     if int(new_percentage) > 0: 
         list_action_types.append(ACTION_TYPES.FRIDGE_FILLED)
 # 2. dirty -> cleaned: should be FRIDGE_CLEANED
@@ -75,10 +70,11 @@ def get_fridge_report_awards(
     list_action_types.append(ACTION_TYPES.FRIDGE_REPORT)
     return list_action_types
 
-def handler(event, context):
+# handler function parses the old and previous report with 
+# helper function, and returns the award list generated
+def handler(event, context) -> list[ACTION_TYPES]:
     new_report = parse_report(event["detail"]["newReport"])
     previous_report = parse_report(event["detail"].get("previousReport"))
-
+    
     awards = get_fridge_report_awards(new_report, previous_report)
-
     return awards

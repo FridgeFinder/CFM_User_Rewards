@@ -93,7 +93,6 @@ def update_user_action_stats(
     for action in awards: 
         total += action.value["points"]
         action_count_name = action.value["action_count_name"]
- 
         update_counters.append(f"{action_count_name} = if_not_exists({action_count_name}, :zero) + :inc")
 
     update_expression = ("SET totalPoints = if_not_exists(totalPoints, :zero) + :total, "
