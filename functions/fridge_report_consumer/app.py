@@ -4,7 +4,8 @@ from __future__ import annotations
 from typing import Any, List
 from .logging_utils import configure_logging, get_logger
 from .rules import ACTION_TYPES, get_fridge_report_awards
-from .dynamo import *
+from .dynamo import write_user_points_history
+from .dynamo import update_user_action_stats
 import os
 import boto3
 import json
@@ -43,22 +44,16 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     user_id = detail.get("userId", "<null>")
     new_report = detail.get("newReport", "<null>")
     previous_report = detail.get("previousReport", "<null>")
+
     if user_id == "<null>":
         return {"skipped": True, "requestId": request_id, "message": "user id is null"}
-
+    if (new_report == previous_report):
+        return {"skipped": True, "requestId": request_id, "message": "new and old report are the same"}
+    if new_report == "<null>":
+        return {"skipped": True, "requestId": request_id, "message": "user id is null"}
 
     json_new_report = json.loads(new_report)
     json_previous_report = json.loads(previous_report)
-
-    if (json_new_report == json_previous_report):
-        return {"skipped": True, "requestId": request_id, "message": "new and old report are the same"}
-    
-    award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{json_new_report['fridgeId']}#TS#{json_new_report['epochTimestamp']}"
-    awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
-
-
-    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, json_new_report, awards):
-        update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, awards)
 
     log.info(
         "FridgeReportUpdated received",
@@ -71,4 +66,13 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
             "user_action_stats_table": user_action_stats_table_name,
         },
     )
-    return {"requestId": request_id, "userId": user_id, "awards": awards}
+   
+    award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{json_new_report['fridgeId']}#TS#{json_new_report['epochTimestamp']}"
+    awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
+
+
+    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, json_new_report, awards):
+        update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, awards)
+        return {"requestId": request_id, "userId": user_id, "awards": awards}
+    else:
+        return {"skipped": True, "requestId": request_id, "message": "duplicate"}

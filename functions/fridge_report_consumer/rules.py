@@ -24,18 +24,18 @@ class ACTION_TYPES(Enum):
 
 # Function takes in the new Report / old Report and returns a status report 
 # with the fridgeId, timestamp, condiiton, and food percentage.
-def parse_report(raw: str | None) -> dict | None:
+def parse_report(raw: str | None) -> StatusReport | None:
     if not raw or raw == "<null>":
         return None
 
     data = json.loads(raw)
 
-    return {
+    return StatusReport(
         "fridgeId": data.get("fridgeId", ""),
         "epochTimestamp": int(data.get("epochTimestamp", 0)),
         "condition": data.get("condition", ""),
         "foodPercentage": int(data.get("foodPercentage", 0)),
-    }
+    )
 
 def get_fridge_resort_awards(
     new_report: StatusReport, previous_report: StatusReport | None,
@@ -70,11 +70,3 @@ def get_fridge_resort_awards(
     list_action_types.append(ACTION_TYPES.FRIDGE_REPORT)
     return list_action_types
 
-# handler function parses the old and previous report with 
-# helper function, and returns the award list generated
-def handler(event, context) -> list[ACTION_TYPES]:
-    new_report = parse_report(event["detail"]["newReport"])
-    previous_report = parse_report(event["detail"].get("previousReport"))
-    
-    awards = get_fridge_report_awards(new_report, previous_report)
-    return awards

@@ -18,7 +18,7 @@ class UserPointsHistoryItem(TypedDict):
     awardId: str
     newReport: dict
     userId: str
-    action_types: list[str]
+    actionTypes: list[str]
     points: int
     occurredAt: int
     createdAt: str

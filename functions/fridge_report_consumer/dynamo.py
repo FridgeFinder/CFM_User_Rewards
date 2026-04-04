@@ -55,7 +55,7 @@ def write_user_points_history(
         "action_types": list(awards),
         "points": total,
         "occurredAt": int(new_report["epochTimestamp"]),
-        "createdAt": datetime.utcnow().isoformat(),  # cleaner than int→str
+        "createdAt": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z',  # cleaner than int→str
         }
         # use a condition check to make sure both the user_id and award_id are unique pair
         conditionalUpdateResponse = client.put_item(TableName = table_name, 
@@ -72,6 +72,7 @@ def write_user_points_history(
             return False
         # handle condition failed
         else:
+            raise
             logger.exception("A client error occurred")
             return False        # handle other ClientErrors
 
