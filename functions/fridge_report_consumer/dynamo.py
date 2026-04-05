@@ -5,14 +5,28 @@ from __future__ import annotations
 import logging
 from typing import Any
 from functions.fridge_report_consumer.rules import ACTION_TYPES
-from datetime import datetime
+from datetime import datetime, timezone
 log = logging.getLogger(__name__)
 import botocore.exceptions
-from models import UserPointsHistoryItem
+from boto3.dynamodb.types import TypeSerializer, TypeDeserializer
+from functions.fridge_report_consumer.models import UserPointsHistoryItem
+
 # ---------------------------------------------------------------------------
 # UserPointsHistory
 # ---------------------------------------------------------------------------
 
+_serializer = TypeSerializer()
+_deserializer = TypeDeserializer()
+
+
+def _to_dynamo_item(item: dict) -> dict:
+    """Serialise a plain Python dict to a DynamoDB typed item."""
+    return {k: _serializer.serialize(v) for k, v in item.items()}
+
+
+def _from_dynamo_item(item: dict) -> dict:
+    """Deserialise a raw DynamoDB typed item to a plain Python dict."""
+    return {k: _deserializer.deserialize(v) for k, v in item.items()}
 
 # write to the database, return true if item written successfully, false if not
 #  writing to the dynamo db database
@@ -49,18 +63,19 @@ def write_user_points_history(
         total += action.value["points"]
     try:
         item: UserPointsHistoryItem = {
-        "userId": user_id,
-        "awardId": award_id,
-        "newReport": new_report,
-        "action_types": list(awards),
-        "points": total,
-        "occurredAt": int(new_report["epochTimestamp"]),
-        "createdAt": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z',  # cleaner than int→str
+            "userId": user_id,
+            "awardId": award_id,
+            "newReport": new_report,
+            "action_types": [action.name for action in awards],
+            "points": total,
+            "occurredAt": int(new_report["epochTimestamp"]),
+            "createdAt": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z',  # cleaner than int→str
         }
         # use a condition check to make sure both the user_id and award_id are unique pair
-        conditionalUpdateResponse = client.put_item(TableName = table_name, 
-        Item =_to_dynamo_item(item), 
-        ConditionExpression= 'attribute_not_exists(user_id) AND attribute_not_exists(award_id)'
+        conditionalUpdateResponse = client.put_item(
+            TableName = table_name, 
+            Item =_to_dynamo_item(item), 
+            ConditionExpression= 'attribute_not_exists(userId) AND attribute_not_exists(awardId)'
         )
         return True
     except botocore.exceptions.ClientError as x:
@@ -68,13 +83,13 @@ def write_user_points_history(
         # to be client errors
         errorCode = x.response.get("Error", {}).get("Code")
         if errorCode == "ConditionalCheckFailedException":
-            logger.exception("A Conditional Check Failed Exception Occurred")
+            log.exception("A Conditional Check Failed Exception Occurred")
             return False
         # handle condition failed
         else:
+            log.exception("A client error occurred")
             raise
-            logger.exception("A client error occurred")
-            return False        # handle other ClientErrors
+            return False  # handle other ClientErrors
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +125,7 @@ def update_user_action_stats(
         }
     )
     
-    return _dynamo_item_to_dict(response["Attributes"])
+    return _from_dynamo_item(response["Attributes"])
 
 
 # ---------------------------------------------------------------------------

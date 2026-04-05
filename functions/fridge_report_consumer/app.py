@@ -3,9 +3,8 @@
 from __future__ import annotations
 from typing import Any, List
 from .logging_utils import configure_logging, get_logger
-from .rules import ACTION_TYPES, get_fridge_report_awards
-from .dynamo import write_user_points_history
-from .dynamo import update_user_action_stats
+from .rules import ACTION_TYPES, get_fridge_report_awards, parse_report
+from .dynamo import write_user_points_history, update_user_action_stats
 import os
 import boto3
 import json
@@ -41,10 +40,14 @@ def handler(event: dict[str, Any], context: Any) -> dict:
 def _process_event(event: dict[str, Any], request_id: str) -> dict:
     detail: dict = event.get("detail") or {}
 
-    user_id = detail.get("userId", "<null>")
-    new_report = detail.get("newReport", "<null>")
-    previous_report = detail.get("previousReport", "<null>")
+    new_report_raw = detail.get("newReport", "<null>")
+    previous_report_raw = detail.get("previousReport", "<null>")
+    json_new_report = json.loads(new_report_raw)
+    json_previous_report = json.loads(previous_report_raw)
+    user_id = json_new_report.get("userId", "<null>")
 
+    new_report = parse_report(new_report_raw)
+    previous_report = parse_report(previous_report_raw)
     if user_id == "<null>":
         return {"skipped": True, "requestId": request_id, "message": "user id is null"}
     if (new_report == previous_report):
@@ -52,9 +55,7 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     if new_report == "<null>":
         return {"skipped": True, "requestId": request_id, "message": "user id is null"}
 
-    json_new_report = json.loads(new_report)
-    json_previous_report = json.loads(previous_report)
-
+   
     log.info(
         "FridgeReportUpdated received",
         extra={
@@ -67,7 +68,7 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
         },
     )
    
-    award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{json_new_report['fridgeId']}#TS#{json_new_report['epochTimestamp']}"
+    award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{new_report['fridgeId']}#TS#{new_report['epochTimestamp']}"
     awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
 
 

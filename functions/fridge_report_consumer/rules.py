@@ -37,7 +37,7 @@ def parse_report(raw: str | None) -> StatusReport | None:
         "foodPercentage": int(data.get("foodPercentage", 0)),
     )
 
-def get_fridge_resort_awards(
+def get_fridge_report_awards(
     new_report: StatusReport, previous_report: StatusReport | None,
 ) -> list[ACTION_TYPES]:
     """
@@ -50,8 +50,10 @@ def get_fridge_resort_awards(
     #any report: should be FRIDGE_REPORT
     #combine condition and foodPercentage to get double points: cleaned + filled, repaired + filled
     """
-    list_action_types = []
+    if previous_report is None:
+        return [ACTION_TYPES.FRIDGE_REPORT]
 
+    list_action_types = []
     new_cond = new_report["condition"]
     old_cond = previous_report["condition"]
     new_percentage = new_report["foodPercentage"]
