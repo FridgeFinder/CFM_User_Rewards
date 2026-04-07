@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+class StatusReport(TypedDict):
+    fridgeId: str
+    epochTimestamp: int
+    condition: str
+    foodPercentage: int
+
 
 class AwardResult(TypedDict):
     """Return type of get_award()."""
@@ -16,7 +22,7 @@ class AwardResult(TypedDict):
 class UserPointsHistoryItem(TypedDict):
     """Item shape for UserPointsHistory."""
     awardId: str
-    newReport: dict
+    newReport: TypedDict
     userId: str
     actionTypes: list[str]
     points: int

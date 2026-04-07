@@ -6,3 +6,5 @@ import os
 def pytest_configure(config):
     """Set env vars before any test module is loaded."""
     os.environ.setdefault("LOG_LEVEL", "WARNING")
+    os.environ.setdefault("USER_ACTION_STATS_TABLE", "test")
+    os.environ.setdefault("USER_POINTS_HISTORY_TABLE", "test")

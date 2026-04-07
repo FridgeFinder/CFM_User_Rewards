@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 from enum import Enum
-from .models import AwardResult
+from .models import AwardResult, StatusReport
 import json
+from typing import TypedDict
+
 
 """
 #NOTE: Do we want to keep track of when a user marks a fridge as "Dirty" or "Repaired"?
 To reward people who make these specific status updates? 
 """
-
-class StatusReport(TypedDict):
-    fridgeId: str
-    epochTimestamp: int
-    condition: str
-    foodPercentage: int
 
 class ACTION_TYPES(Enum):
     FRIDGE_CLEANED = AwardResult(points=15, action_count_name="cleanedCount")
@@ -27,15 +23,23 @@ class ACTION_TYPES(Enum):
 def parse_report(raw: str | None) -> StatusReport | None:
     if not raw or raw == "<null>":
         return None
+    try:
+        data = json.loads(raw)
 
-    data = json.loads(raw)
+        return {
+            "fridgeId": data["fridgeId"],
+            "epochTimestamp": int(data["epochTimestamp"]),
+            "condition": data["condition"],
+            "foodPercentage": int(data["foodPercentage"]),
+        }
+    except KeyError as e:
+        raise ValueError(f"Validation Error: Missing mandatory field {e}") from e
 
-    return StatusReport(
-        "fridgeId": data.get("fridgeId", ""),
-        "epochTimestamp": int(data.get("epochTimestamp", 0)),
-        "condition": data.get("condition", ""),
-        "foodPercentage": int(data.get("foodPercentage", 0)),
-    )
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Validation Error: Data type mismatch: {e}") from e
+
+
+
 
 def get_fridge_report_awards(
     new_report: StatusReport, previous_report: StatusReport | None,

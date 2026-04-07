@@ -8,7 +8,6 @@ from .dynamo import write_user_points_history, update_user_action_stats
 import os
 import boto3
 import json
-import uuid
 
 
 def get_ddb_client() -> boto3.client:
@@ -41,21 +40,28 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     detail: dict = event.get("detail") or {}
 
     new_report_raw = detail.get("newReport", "<null>")
+    if new_report_raw == "<null>":
+        return {"skipped": True, "requestId": request_id, "message": "new report is null"}
     previous_report_raw = detail.get("previousReport", "<null>")
     json_new_report = json.loads(new_report_raw)
-    json_previous_report = json.loads(previous_report_raw)
-    user_id = json_new_report.get("userId", "<null>")
-
-    new_report = parse_report(new_report_raw)
-    previous_report = parse_report(previous_report_raw)
-    if user_id == "<null>":
+    json_previous_report = (
+        json.loads(previous_report_raw) if previous_report_raw != "<null>" else None
+    )    
+    user_id = json_new_report.get("userId", None)
+    try: 
+        new_report = parse_report(new_report_raw)
+        previous_report = parse_report(previous_report_raw)
+    except ValueError as e: 
+        log.error("Not valid report data")
+        return {
+            "skipped": True, 
+            "requestId": request_id, 
+            "reason": "invalid_data"}
+    if not user_id:
         return {"skipped": True, "requestId": request_id, "message": "user id is null"}
     if (new_report == previous_report):
         return {"skipped": True, "requestId": request_id, "message": "new and old report are the same"}
-    if new_report == "<null>":
-        return {"skipped": True, "requestId": request_id, "message": "user id is null"}
 
-   
     log.info(
         "FridgeReportUpdated received",
         extra={
