@@ -2,32 +2,30 @@
 from enum import Enum
 import json
 from functions.fridge_report_consumer.rules import ACTION_TYPES
-from functions.fridge_report_consumer.models import AwardResult
-from functions.fridge_report_consumer.rules import get_fridge_report_awards
+from functions.fridge_report_consumer.models import AwardResult, StatusReport
+from functions.fridge_report_consumer.rules import get_fridge_report_awards, parse_report
 
 
 class TestGetFridgeReportAwards:
-    #NOTE: remove this test once the function is implemented
     def test_returns_cleaned(self):
-        event = {
-            "detail": {
-            "userId": "user2",
-            "newReport": json.dumps({
-                "fridgeId": "greenpointfridge",
-                "epochTimestamp": "1762032699",
-                "condition": "cleaned",
-                "foodPercentage": 2
-            }),
-            "previousReport": json.dumps({
-                "fridgeId": "greenpointfridge",
-                "epochTimestamp": "1700000000",
-                "condition": "dirty",
-                "foodPercentage": 0
-            }),
-        }
-    }
 
-        result = get_fridge_report_awards(event["detail"]["newReport"], event["detail"]["previousReport"])
+        prevReport: StatusReport = {
+            "fridgeId": "greenpointfridge",
+            "epochTimestamp": 1762032699,
+            "condition": "dirty",
+            "foodPercentage": 70,
+        }
+
+        newReport: StatusReport = {
+            "fridgeId": "greenpointfridge", 
+            "epochTimestamp": 1762032699, 
+            "condition": "good", 
+            "foodPercentage": 75,
+        }
+
+
+
+        result = get_fridge_report_awards(newReport, prevReport)
         assert ACTION_TYPES.FRIDGE_FILLED in result
         assert ACTION_TYPES.FRIDGE_CLEANED in result
         assert ACTION_TYPES.FRIDGE_REPORT in result
@@ -36,26 +34,57 @@ class TestGetFridgeReportAwards:
 
 
     def test_returns_repairs(self):
-        event = {
-            "detail": {
-            "userId": "user2",
-            "newReport": json.dumps({
-                "fridgeId": "greenpointfridge",
-                "epochTimestamp": "1762032699",
-                "condition": "good",
-                "foodPercentage": 2
-            }),
-            "previousReport": json.dumps({
-                "fridgeId": "greenpointfridge",
-                "epochTimestamp": "1700000000",
-                "condition": "needs repairs",
-                "foodPercentage": 0
-            }),
-        }
+        prevReport: StatusReport = {
+            "fridgeId": "greenpointfridge",
+            "epochTimestamp": 1762032699,
+            "condition": "needs repairs",
+            "foodPercentage": 70,
         }
 
-        result = get_fridge_report_awards(event["detail"]["newReport"], event["detail"]["previousReport"])
+        newReport: StatusReport = {
+            "fridgeId": "greenpointfridge", 
+            "epochTimestamp": 1762032699, 
+            "condition": "good", 
+            "foodPercentage": 75,
+        }
+
+
+        result = get_fridge_report_awards(newReport, prevReport)
         assert ACTION_TYPES.FRIDGE_FILLED in result
         assert ACTION_TYPES.FRIDGE_REPAIRED in result
         assert ACTION_TYPES.FRIDGE_REPORT in result
-        assert len(result) == 3        
+        assert len(result) == 3     
+
+    def test_parse_report(self):
+        VALID_NEW_REPORT = json.dumps({
+            "fridgeId": "greenpointfridge",
+            "epochTimestamp": "1762032699",
+            "condition": "good",
+            "foodPercentage": 50,
+            "userId": "user1",
+        })
+
+        VALID_PREVIOUS_REPORT = json.dumps({
+            "fridgeId": "greenpointfridge",
+            "epochTimestamp": "1800000000",
+            "condition": "dirty",
+            "foodPercentage": 0,
+            "userId": "user1",
+        })
+        reportExpectedNew: StatusReport = {
+            "fridgeId": "greenpointfridge",
+            "epochTimestamp": 1762032699,
+            "condition": "good",
+            "foodPercentage": 50,
+        }
+
+        reportExpectedPrev: StatusReport = {
+            "fridgeId": "greenpointfridge",
+            "epochTimestamp": "1800000000",
+            "condition": "dirty",
+            "foodPercentage": 0,
+        }
+        result1 = parse_report(VALID_NEW_REPORT)
+        result2 = parse_report(VALID_PREVIOUS_REPORT)
+
+        assert reportExpectedNew == result1
