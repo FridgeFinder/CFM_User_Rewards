@@ -7,6 +7,22 @@ from functions.fridge_report_consumer.rules import get_fridge_report_awards, par
 
 
 class TestGetFridgeReportAwards:
+    def test_returns_only_fridgereport(self): 
+        
+
+        newReport: StatusReport = {
+            "fridgeId": "greenpointfridge", 
+            "epochTimestamp": 1762032699, 
+            "condition": "good", 
+            "foodPercentage": 75,
+        }
+
+        result = get_fridge_report_awards(newReport, None)
+        assert ACTION_TYPES.FRIDGE_REPORT in result
+
+
+
+
     def test_returns_cleaned(self):
 
         prevReport: StatusReport = {
