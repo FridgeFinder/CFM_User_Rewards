@@ -1,7 +1,6 @@
 """Unit tests for app.py"""
 
 import json
-import os
 from functions.fridge_report_consumer.rules import *
 from unittest.mock import patch
 from functions.fridge_report_consumer.app import _process_event

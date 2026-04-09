@@ -92,6 +92,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": 1762032699,
             "condition": "good",
             "foodPercentage": 50,
+            "userId": "user1",
+
         }
 
         reportExpectedPrev: StatusReport = {
@@ -99,6 +101,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": "1800000000",
             "condition": "dirty",
             "foodPercentage": 0,
+            "userId": "user1",
+
         }
         result1 = parse_report(VALID_NEW_REPORT)
         result2 = parse_report(VALID_PREVIOUS_REPORT)

@@ -35,19 +35,12 @@ def handler(event: dict[str, Any], context: Any) -> dict:
     request_id: str = getattr(context, "aws_request_id", "local")
     return _process_event(event, request_id)
 
-
 def _process_event(event: dict[str, Any], request_id: str) -> dict:
+    ### GET DATA FROM EVENT ###
     detail: dict = event.get("detail") or {}
-
     new_report_raw = detail.get("newReport", "<null>")
-    if new_report_raw == "<null>":
-        return {"skipped": True, "requestId": request_id, "message": "new report is null"}
     previous_report_raw = detail.get("previousReport", "<null>")
-    json_new_report = json.loads(new_report_raw)
-    json_previous_report = (
-        json.loads(previous_report_raw) if previous_report_raw != "<null>" else None
-    )    
-    user_id = json_new_report.get("userId", None)
+    ### PARSE DATA ###
     try: 
         new_report = parse_report(new_report_raw)
         previous_report = parse_report(previous_report_raw)
@@ -57,11 +50,14 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
             "skipped": True, 
             "requestId": request_id, 
             "reason": "invalid_data"}
-    if not user_id:
+    ### PROCESS/VALIDATE DATA ###
+    if new_report is None:
+        return {"skipped": True, "requestId": request_id, "message": "new report is null"}
+    if not new_report.get("userId"):
         return {"skipped": True, "requestId": request_id, "message": "user id is null"}
     if (new_report == previous_report):
         return {"skipped": True, "requestId": request_id, "message": "new and old report are the same"}
-
+    user_id = new_report.get("userId")
     log.info(
         "FridgeReportUpdated received",
         extra={
@@ -73,12 +69,10 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
             "user_action_stats_table": user_action_stats_table_name,
         },
     )
-   
+    ### BUSINESS/DATA LOGIC ###
     award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{new_report['fridgeId']}#TS#{new_report['epochTimestamp']}"
     awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
-
-
-    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, json_new_report, awards):
+    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, new_report, awards):
         update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, awards)
         return {"requestId": request_id, "userId": user_id, "awards": awards}
     else:

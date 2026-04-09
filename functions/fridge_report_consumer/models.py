@@ -9,7 +9,7 @@ class StatusReport(TypedDict):
     epochTimestamp: int
     condition: str
     foodPercentage: int
-
+    userId: NotRequired[str]
 
 class AwardResult(TypedDict):
     """Return type of get_award()."""
