@@ -1,7 +1,6 @@
 """DynamoDB helper functions for the User Rewards service."""
 
-from __future__ import annotations
-
+from typing import TypedDict, NotRequired
 import logging
 from typing import Any
 from functions.fridge_report_consumer.rules import ACTION_TYPES
@@ -62,15 +61,16 @@ def write_user_points_history(
     for action in awards: 
         total += action.value["points"]
     try:
-        item: UserPointsHistoryItem = {
-            "userId": user_id,
-            "awardId": award_id,
-            "newReport": new_report,
-            "action_types": [action.name for action in awards],
-            "points": total,
-            "occurredAt": int(new_report["epochTimestamp"]),
-            "createdAt": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z',  # cleaner than int→str
-        }
+        item = UserPointsHistoryItem(
+            userId=user_id,
+            awardId=award_id,
+            newReport=new_report,
+            actionTypes=[action.name for action in awards],
+            points=total,
+            occurredAt=int(new_report["epochTimestamp"]),
+            createdAt=datetime.now(timezone.utc)
+                .strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z',
+        )
         # use a condition check to make sure both the user_id and award_id are unique pair
         conditionalUpdateResponse = client.put_item(
             TableName = table_name, 
@@ -89,7 +89,6 @@ def write_user_points_history(
         else:
             log.exception("A client error occurred")
             raise
-            return False  # handle other ClientErrors
 
 
 # ---------------------------------------------------------------------------

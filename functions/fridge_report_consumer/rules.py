@@ -26,14 +26,13 @@ def parse_report(raw: str | None) -> StatusReport | None:
     try:
         data = json.loads(raw)
 
-        report: StatusReport = {
-            "fridgeId": data["fridgeId"],
-            "epochTimestamp": int(data["epochTimestamp"]),
-            "condition": data["condition"],
-            "foodPercentage": int(data["foodPercentage"]),
-            "userId":data.get("userId", None)
-        }
-        return report
+        return StatusReport(
+            fridgeId=data["fridgeId"],
+            epochTimestamp=int(data["epochTimestamp"]),
+            condition=data["condition"],
+            foodPercentage=int(data["foodPercentage"]),
+            userId=data.get("userId", None)
+        )
     except KeyError as e:
         raise ValueError(f"Validation Error: Missing mandatory field {e}") from e
 
