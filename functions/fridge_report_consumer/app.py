@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 from typing import Any, List
-from logging_utils import configure_logging, get_logger
-from rules import ACTION_TYPES, get_fridge_report_awards
+from .logging_utils import configure_logging, get_logger
+from .rules import ACTION_TYPES, get_fridge_report_awards, parse_report
+from .dynamo import write_user_points_history, update_user_action_stats
 import os
 import boto3
+import json
 
 
 def get_ddb_client() -> boto3.client:
@@ -33,20 +35,29 @@ def handler(event: dict[str, Any], context: Any) -> dict:
     request_id: str = getattr(context, "aws_request_id", "local")
     return _process_event(event, request_id)
 
-
 def _process_event(event: dict[str, Any], request_id: str) -> dict:
+    ### GET DATA FROM EVENT ###
     detail: dict = event.get("detail") or {}
-
-    # if user_id is missing, skip processing
-    # NOTE: userId can be "<null>" if the report is made by a user that's not logged in
-    # NOTE: should we keep track of anonymous user activity? I think so..
-    # TODO: create user "Anonymous_Neighbor" and use that userId in the statusReport
-    # NOTE: Don't have to do anything here.. FridgeReport can handle that but keeping note here in case we forget
-    # NOTE: it's possible newReport and previousReport are the same, if that occurs you can skip processing
-    user_id = detail.get("userId", "<null>")
-    new_report = detail.get("newReport", "<null>")
-    previous_report = detail.get("previousReport", "<null>")
-
+    new_report_raw = detail.get("newReport", "<null>")
+    previous_report_raw = detail.get("previousReport", "<null>")
+    ### PARSE DATA ###
+    try: 
+        new_report = parse_report(new_report_raw)
+        previous_report = parse_report(previous_report_raw)
+    except ValueError as e: 
+        log.error("Not valid report data")
+        return {
+            "skipped": True, 
+            "requestId": request_id, 
+            "reason": "invalid_data"}
+    ### PROCESS/VALIDATE DATA ###
+    if new_report is None:
+        return {"skipped": True, "requestId": request_id, "message": "new report is null"}
+    if not new_report.get("userId"):
+        return {"skipped": True, "requestId": request_id, "message": "user id is null"}
+    if (new_report == previous_report):
+        return {"skipped": True, "requestId": request_id, "message": "new and old report are the same"}
+    user_id = new_report.get("userId")
     log.info(
         "FridgeReportUpdated received",
         extra={
@@ -58,8 +69,11 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
             "user_action_stats_table": user_action_stats_table_name,
         },
     )
-
+    ### BUSINESS/DATA LOGIC ###
+    award_id = f"AWARD#STATUS_UPDATE#FRIDGE#{new_report['fridgeId']}#TS#{new_report['epochTimestamp']}"
     awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
-    # TODO: write to user_points_history table. If history write succeeds, update user_action_stats table
-
-    return {"requestId": request_id, "userId": user_id, "awards": awards}
+    if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, new_report, awards):
+        update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, awards)
+        return {"requestId": request_id, "userId": user_id, "awards": awards}
+    else:
+        return {"skipped": True, "requestId": request_id, "message": "duplicate"}
