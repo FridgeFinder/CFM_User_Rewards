@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from enum import Enum
-from .models import AwardResult, StatusReport
+from models import AwardResult, StatusReport
 import json
 from typing import TypedDict
 

@@ -8,8 +8,7 @@
   "detail-type": "FridgeReportUpdated",
   "resources": [],
   "detail": {
-    "userId": "user1",
-    "newReport": "{\"fridgeId\":\"greenpointfridge\",\"epochTimestamp\":\"1762032699\",\"condition\":\"good\",\"foodPercentage\":2}",
+    "newReport": "{\"userId\":\"user8\", \"fridgeId\":\"greenpointfridge\",\"epochTimestamp\":\"1762032699\",\"condition\":\"good\",\"foodPercentage\":2}",
     "previousReport": "<null>"
   }
 }

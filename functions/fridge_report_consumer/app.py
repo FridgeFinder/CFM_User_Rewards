@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 from typing import Any, List
-from .logging_utils import configure_logging, get_logger
-from .rules import ACTION_TYPES, get_fridge_report_awards, parse_report
-from .dynamo import write_user_points_history, update_user_action_stats
+from logging_utils import configure_logging, get_logger
+from rules import ACTION_TYPES, get_fridge_report_awards, parse_report
+from dynamo import write_user_points_history, update_user_action_stats
 import os
 import boto3
 import json
@@ -74,6 +74,6 @@ def _process_event(event: dict[str, Any], request_id: str) -> dict:
     awards: List[ACTION_TYPES] = get_fridge_report_awards(new_report, previous_report)
     if write_user_points_history(dynamodb_client, user_points_history_table_name, user_id, award_id, new_report, awards):
         update_user_action_stats(dynamodb_client, user_action_stats_table_name, user_id, awards)
-        return {"requestId": request_id, "userId": user_id, "awards": awards}
+        return {"requestId": request_id, "userId": user_id, "awards": [a.value for a in awards]}
     else:
         return {"skipped": True, "requestId": request_id, "message": "duplicate"}

@@ -54,10 +54,10 @@ class TestGetFridgeReportAwards:
 
         client.create_table(
             TableName = "test_table", 
-            KeySchema = [{"AttributeName": "user_id", "KeyType": "HASH"}, 
+            KeySchema = [{"AttributeName": "userId", "KeyType": "HASH"}, 
             ],
             AttributeDefinitions = [
-                {"AttributeName": "user_id", "AttributeType": "S"},
+                {"AttributeName": "userId", "AttributeType": "S"},
             ],
             BillingMode="PAY_PER_REQUEST"
             )
@@ -66,7 +66,7 @@ class TestGetFridgeReportAwards:
 
         response = client.get_item(TableName = "test_table", 
             Key={
-                "user_id": {"S":"user1"}
+                "userId": {"S":"user1"}
             }
         )
 

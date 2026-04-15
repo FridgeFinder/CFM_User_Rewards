@@ -3,13 +3,13 @@
 from typing import TypedDict, NotRequired
 import logging
 from typing import Any
-from functions.fridge_report_consumer.rules import ACTION_TYPES
+from rules import ACTION_TYPES
 from datetime import datetime, timezone
 log = logging.getLogger(__name__)
 import botocore.exceptions
 from boto3.dynamodb.types import TypeSerializer, TypeDeserializer
-from functions.fridge_report_consumer.models import UserPointsHistoryItem
-from .models import StatusReport
+from models import UserPointsHistoryItem
+from models import StatusReport
 # ---------------------------------------------------------------------------
 # UserPointsHistory
 # ---------------------------------------------------------------------------
@@ -96,12 +96,8 @@ def write_user_points_history(
 # ---------------------------------------------------------------------------
 def update_user_action_stats(
     client, table_name: str, user_id: str, awards: list[ACTION_TYPES]
-) -> dict:
-    """Atomically increment UserActionStats for a user.
-   
-    Returns:
-        The full, updated stats item
-    """
+) -> None:
+    """Atomically increment UserActionStats for a user."""
 
     total = 0
     update_counters = []
@@ -113,16 +109,14 @@ def update_user_action_stats(
     update_expression = ("SET totalPoints = if_not_exists(totalPoints, :zero) + :total, "
     +", ".join(update_counters))
 
-    response = client.update_item(
+    client.update_item(
             TableName = table_name, 
-            Key ={"user_id": {"S": user_id}}, 
+            Key ={"userId": {"S": user_id}}, 
             UpdateExpression=update_expression,
             ExpressionAttributeValues= {
                 ':inc': {"N": "1"},
                 ':zero': {"N": "0"}, 
                 ':total': {"N": str(total)}
-        }
+        },
     )
-    
-    return _from_dynamo_item(response["Attributes"])
 
