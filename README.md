@@ -69,7 +69,7 @@ Follow these steps to get Dynamodb running locally
 
 2. **Create tables**
     ```sh
-    $ ./scripts/create_local_dynamodb_tables.py
+    $ ./local_scripts/create_local_dynamodb_tables.py
     ```
 
 ## Local Setup
@@ -107,7 +107,7 @@ make build
 make invoke-fridge-report-updated
 
 # Invoke locally with a FridgeReportUpdated event (no previous report)
-make invoke-repaired
+make invoke-fridge-report-updated-new-only
 
 # Use sam local invoke directly with any event file
 sam local invoke UserRewardsConsumerFunction \
