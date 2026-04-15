@@ -1,13 +1,13 @@
 """Unit tests for app.py"""
 
 import json
-from functions.fridge_report_consumer.rules import *
+from functions.fridge_report_consumer.rules import ACTION_TYPES, get_fridge_report_awards, parse_report
 from unittest.mock import patch
 from functions.fridge_report_consumer.app import _process_event
 # from dynamo import *
 @patch("functions.fridge_report_consumer.app.write_user_points_history", return_value=True)
 @patch("functions.fridge_report_consumer.app.update_user_action_stats")
-@patch("functions.fridge_report_consumer.app.get_fridge_report_awards", return_value = [{"points": 15}])
+@patch("functions.fridge_report_consumer.app.get_fridge_report_awards", return_value=[ACTION_TYPES.FRIDGE_CLEANED])
 class TestProcessEvent:
     # expected functionality is to return the dict with the request if user id and award of 15, since
     # the fridge was cleaned. Patch returns the award value of 15, but will be 
@@ -33,7 +33,7 @@ class TestProcessEvent:
         }
     }
         result = _process_event(event, "test-1")
-        assert result == {"requestId": "test-1", "userId": "user2", "awards":[{"points": 15}]}
+        assert result == {"requestId": "test-1", "userId": "user2", "awards": [{"points": 15, "action_count_name": "cleanedCount"}]}
 
 
        # expected functionality is to return skipped in a dict, since 
