@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /v1/user-action-stats/{userId}",
+  "rawPath": "/v1/user-action-stats/user9",
+  "rawQueryString": "",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "requestContext": {
+    "accountId": "123456789012",
+    "apiId": "local",
+    "http": {
+      "method": "GET",
+      "path": "/v1/user-action-stats/user9",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "curl/8.0"
+    },
+    "requestId": "local-request-id",
+      "routeKey": "GET /v1/user-action-stats/{userId}",
+    "stage": "dev"
+  },
+  "pathParameters": {
+    "userId": "user9"
+  },
+  "isBase64Encoded": false
+}

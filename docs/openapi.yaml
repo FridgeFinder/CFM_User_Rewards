@@ -1,0 +1,107 @@
+openapi: "3.1.0"
+info:
+  title: CFM User Rewards API
+  description: >
+    Read-only HTTP API for the Community Fridge Finder User Rewards service.
+    Awards points and aggregates action stats from FridgeReportUpdated events.
+  version: "1.0.0"
+
+servers:
+  - url: https://user-rewards-api-dev.communityfridgefinder.com
+    description: Development
+  - url: https://user-rewards-api-staging.communityfridgefinder.com
+    description: Staging
+  - url: https://user-rewards-api-prod.communityfridgefinder.com
+    description: Production
+  - url: http://127.0.0.1:3000
+    description: Local (SAM)
+
+paths:
+  /hello:
+    get:
+      summary: Health check
+      operationId: helloWorld
+      responses:
+        "200":
+          description: Service is healthy
+
+  /v1/user-action-stats/{userId}:
+    get:
+      summary: Get action stats for a user
+      operationId: getUserActionStats
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The unique user identifier
+      responses:
+        "200":
+          description: User action stats record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserActionStats"
+              example:
+                userId: user9
+                totalPoints: 150
+                fridgeReportCount: 10
+                cleanedCount: 3
+                filledCount: 5
+                repairedCount: 2
+                lastUpdated: "2026-06-07T10:00:00.000Z"
+        "400":
+          description: Missing or invalid userId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No stats found for the given userId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    UserActionStats:
+      type: object
+      required:
+        - userId
+        - totalPoints
+        - fridgeReportCount
+        - cleanedCount
+        - filledCount
+        - repairedCount
+        - lastUpdated
+      properties:
+        userId:
+          type: string
+          description: Unique user identifier
+        totalPoints:
+          type: integer
+          description: Cumulative points earned
+        fridgeReportCount:
+          type: integer
+          description: Total number of fridge reports submitted
+        cleanedCount:
+          type: integer
+          description: Number of fridge-cleaned actions
+        filledCount:
+          type: integer
+          description: Number of fridge-filled actions
+        repairedCount:
+          type: integer
+          description: Number of fridge-repaired actions
+        lastUpdated:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp of the last stat update
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string

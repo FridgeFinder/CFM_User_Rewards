@@ -22,8 +22,14 @@ for file in os.listdir(schema_dir):
                 ENDPOINT_URL,
             ],
             env=dict(os.environ, AWS_PAGER=""),
+            capture_output=True,
+            text=True,
         )
         if p.returncode:
-            print(f"Could not create DynamoDB table from {file}")
-            exit(p.returncode)
+            if "ResourceInUseException" in p.stderr:
+                print(f"Table from {file} already exists, skipping.")
+            else:
+                print(p.stderr)
+                print(f"Could not create DynamoDB table from {file}")
+                exit(p.returncode)
 
