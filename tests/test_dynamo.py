@@ -75,3 +75,33 @@ class TestGetFridgeReportAwards:
         expected_total = (ACTION_TYPES.FRIDGE_CLEANED.value["points"] * 2)
         assert int(item["totalPoints"]["N"]) == expected_total
 
+    @mock_aws
+    def test_update_user_action_stats_seeds_all_counters(self):
+        """All counter fields should be present after the first write, even if
+        the corresponding action type was not included in that write."""
+        client = boto3.client('dynamodb')
+        client.create_table(
+            TableName="test_table",
+            KeySchema=[{"AttributeName": "userId", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "userId", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+
+        # Only write a FRIDGE_CLEANED award — all other counters should still be seeded to 0.
+        update_user_action_stats(client, "test_table", "user1", [ACTION_TYPES.FRIDGE_CLEANED])
+
+        item = client.get_item(
+            TableName="test_table", Key={"userId": {"S": "user1"}}
+        )["Item"]
+
+        for action in ACTION_TYPES:
+            counter_field = action.value["action_count_name"]
+            assert counter_field in item, f"{counter_field} missing from item"
+            if action == ACTION_TYPES.FRIDGE_CLEANED:
+                assert int(item[counter_field]["N"]) == 1
+            else:
+                assert int(item[counter_field]["N"]) == 0, f"{counter_field} should be seeded to 0"
+
+        assert "lastUpdated" in item
+        assert item["lastUpdated"]["S"].endswith("Z")
+

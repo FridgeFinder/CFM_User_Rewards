@@ -97,26 +97,46 @@ def write_user_points_history(
 def update_user_action_stats(
     client, table_name: str, user_id: str, awards: list[ACTION_TYPES]
 ) -> None:
-    """Atomically increment UserActionStats for a user."""
+    """Atomically increment UserActionStats for a user.
 
+    All counter fields are initialised to 0 on first write so the API always
+    returns a complete, predictable schema regardless of which actions the user
+    has performed so far.
+    """
     total = 0
-    update_counters = []
-    for action in awards: 
+    incremented: set[str] = set()
+    updated_counters = []
+
+    for action in awards:
         total += action.value["points"]
         action_count_name = action.value["action_count_name"]
-        update_counters.append(f"{action_count_name} = if_not_exists({action_count_name}, :zero) + :inc")
+        updated_counters.append(f"{action_count_name} = if_not_exists({action_count_name}, :zero) + :inc")
+        incremented.add(action_count_name)
 
-    update_expression = ("SET totalPoints = if_not_exists(totalPoints, :zero) + :total, "
-    +", ".join(update_counters))
+    # Seed any counter not incremented this write so all fields always exist.
+    # Derived from ACTION_TYPES so adding a new action type here is the only change needed.
+    for action in ACTION_TYPES:
+        action_count_name = action.value["action_count_name"]
+        if action_count_name not in incremented:
+            updated_counters.append(f"{action_count_name} = if_not_exists({action_count_name}, :zero)")
+
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+
+    update_expression = (
+        "SET totalPoints = if_not_exists(totalPoints, :zero) + :total, "
+        "lastUpdated = :now, "
+        + ", ".join(updated_counters)
+    )
 
     client.update_item(
-            TableName = table_name, 
-            Key ={"userId": {"S": user_id}}, 
-            UpdateExpression=update_expression,
-            ExpressionAttributeValues= {
-                ':inc': {"N": "1"},
-                ':zero': {"N": "0"}, 
-                ':total': {"N": str(total)}
+        TableName=table_name,
+        Key={"userId": {"S": user_id}},
+        UpdateExpression=update_expression,
+        ExpressionAttributeValues={
+            ":inc": {"N": "1"},
+            ":zero": {"N": "0"},
+            ":total": {"N": str(total)},
+            ":now": {"S": now},
         },
     )
 
