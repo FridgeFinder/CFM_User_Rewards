@@ -53,7 +53,7 @@ class TestGetFridgeReportAwards:
         prevReport: StatusReport = {
             "fridgeId": "greenpointfridge",
             "epochTimestamp": 1762032699,
-            "condition": "needs repairs",
+            "condition": "out of order",
             "foodPercentage": 70,
         }
 

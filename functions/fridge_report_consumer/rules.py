@@ -51,7 +51,7 @@ def get_fridge_report_awards(
           see /events files for references on input
     #dirty -> cleaned: should be FRIDGE_CLEANED
     #food level > 0: should be FRIDGE_FILLED 
-    #needs repairs -> good: should be FRIDGE_REPAIRED
+    #out of order -> good: should be FRIDGE_REPAIRED
     #any report: should be FRIDGE_REPORT
     #combine condition and foodPercentage to get double points: cleaned + filled, repaired + filled
     """
@@ -71,7 +71,7 @@ def get_fridge_report_awards(
     if old_cond == "dirty" and new_cond == "good": 
         list_action_types.append(ACTION_TYPES.FRIDGE_CLEANED)
 # 3. repairs -> good, should be FRIDGE_REPAIRED
-    if old_cond == "needs repairs" and new_cond == "good":
+    if old_cond == "out of order" and new_cond == "good":
         list_action_types.append(ACTION_TYPES.FRIDGE_REPAIRED)
 # 4. any report: should be FRIDGE_REPORT
     list_action_types.append(ACTION_TYPES.FRIDGE_REPORT)

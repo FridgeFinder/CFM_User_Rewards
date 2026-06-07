@@ -17,17 +17,9 @@ CFM_HOSTED_ZONE_ID ?=
 build:
 	sam build --use-container
 
-## Deploy to AWS (guided first-run; subsequent runs use samconfig.toml)
+## Deploy to AWS using samconfig.toml (ENV=dev|staging|prod)
 deploy:
-	sam deploy \
-		--stack-name $(STACK_NAME) \
-		--region $(REGION) \
-		--parameter-overrides \
-			Environment=$(ENV) \
-			DeploymentTarget=aws \
-			CFMHostedZoneId=$(CFM_HOSTED_ZONE_ID) \
-		--capabilities CAPABILITY_IAM \
-		--resolve-s3
+	sam deploy --config-env $(ENV)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Local invoke (requires Docker + AWS SAM CLI)

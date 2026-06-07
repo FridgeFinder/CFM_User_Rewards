@@ -187,15 +187,18 @@ python3 -m http.server 8080 --directory docs
 
 ## Deploy to AWS
 
-```bash
-# First-time guided deploy (creates samconfig.toml)
-sam deploy --guided
+All deploy configuration lives in [samconfig.toml](samconfig.toml). Fill in any `<REPLACE_ME>` placeholders for staging/prod before deploying.
 
-# Subsequent deploys
+```bash
+# Deploy to dev (default)
 make deploy
 
-# Override environment
+# Deploy to staging or prod
 make deploy ENV=staging
+make deploy ENV=prod
+
+# First-time only — validate the template before deploying
+sam validate --config-env dev
 ```
 
 ---

@@ -267,18 +267,6 @@ Resources:
 
 
 Outputs:
-  UserPointsHistoryTableName:
-    Description: UserPointsHistory DynamoDB table name
-    Value: !Ref UserPointsHistoryTable
-    Export:
-      Name: !Sub "user_points_history_${Environment}"
-
-  UserActionStatsTableName:
-    Description: UserActionStats DynamoDB table name
-    Value: !Ref UserActionStatsTable
-    Export:
-      Name: !Sub "user_action_stats_${Environment}"
-
   RewardsConsumerDLQUrl:
     Description: URL of the Consumer DLQ
     Value: !Ref RewardsConsumerDLQ
