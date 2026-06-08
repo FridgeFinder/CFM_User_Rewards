@@ -30,11 +30,18 @@ Producer services (EventBridge events)
         ▼
 EventBridge Bus  ─────► EventBridge Rules
                                 │
+                         ┌──────┴──────────────────┐
+                         ▼                          ▼
+           UserRewardsConsumerFunction   UserDeletionHandlerFunction
+                  │            │                    │
+                  ▼            ▼               (deletes all
+           UserPointsHistory  UserActionStats   reward data)
+
+HTTP API (GET)  ─────► UserHttpApi (API Gateway)
+                                │
                                 ▼
-                  UserRewardsConsumerFunction
-                     │            │
-                     ▼            ▼
-              UserPointsHistory  UserActionStats
+                   GetUserActionStatsFunction
+                         (reads UserActionStats)
 ```
 ## Pre-Requisites
 
@@ -102,31 +109,96 @@ PYTHONPATH=functions/fridge_report_consumer pytest tests/test_rules.py -v
 ```bash
 # Build Lambda package (resolves dependencies)
 make build
+```
 
-# Invoke locally with a FridgeReportUpdated event (both reports present)
+### Invoke: Rewards Consumer
+
+```bash
+# FridgeReportUpdated event (both reports present)
 make invoke-fridge-report-updated
 
-# Invoke locally with a FridgeReportUpdated event (no previous report)
+# FridgeReportUpdated event (no previous report)
 make invoke-fridge-report-updated-new-only
-
-# Use sam local invoke directly with any event file
-sam local invoke UserRewardsConsumerFunction \
-    --event events/status_update_created.json \
-    --env-vars env.local.json
 ```
+
+### Invoke: Get User Action Stats
+
+```bash
+make invoke-get-user-action-stats
+```
+
+### Invoke: User Deletion Handler
+
+```bash
+make invoke-user-deleted
+```
+
+---
+
+## Running the API Locally (localhost)
+
+SAM can spin up a local HTTP server that emulates API Gateway, letting you hit endpoints with `curl` or a browser.
+
+```bash
+# Start the local API (binds to http://127.0.0.1:3000 by default)
+sam local start-api \
+    --parameter-overrides ParameterKey=DeploymentTarget,ParameterValue=local ParameterKey=Environment,ParameterValue=dev \
+    --docker-network cfm-network
+```
+
+Once running, the available endpoints are:
+
+| Method | Path | Function |
+|--------|------|----------|
+| `GET` | `http://127.0.0.1:3000/hello` | HelloWorldFunction |
+| `GET` | `http://127.0.0.1:3000/v1/user-action-stats/{userId}` | GetUserActionStatsFunction |
+
+**Example requests:**
+
+```bash
+# Health check
+curl http://127.0.0.1:3000/hello
+
+# Get action stats for a user
+curl http://127.0.0.1:3000/v1/user-action-stats/user9
+```
+
+> **Note:** Make sure `docker compose up` is running first so the local DynamoDB tables are available.
+
+---
+
+## API Docs (OpenAPI)
+
+The spec lives at [docs/openapi.yaml](docs/openapi.yaml) and is published to GitHub Pages automatically on every push to `main` that touches `docs/`.
+
+**View docs online:** `https://<your-org>.github.io/<repo-name>/`
+
+### View locally
+
+Serve the `docs/` folder with any static file server — the page loads Swagger UI from a CDN and renders the spec in the browser.
+
+```bash
+# Python (no install needed)
+python3 -m http.server 8080 --directory docs
+# then open http://localhost:8080
+```
+
 ---
 
 ## Deploy to AWS
 
-```bash
-# First-time guided deploy (creates samconfig.toml)
-sam deploy --guided
+All deploy configuration lives in [samconfig.toml](samconfig.toml). Fill in any `<REPLACE_ME>` placeholders for staging/prod before deploying.
 
-# Subsequent deploys
+```bash
+# Deploy to dev (default)
 make deploy
 
-# Override environment
+# Deploy to staging or prod
 make deploy ENV=staging
+make deploy ENV=prod
+
+# First-time only — validate the template before deploying
+sam validate --config-env dev
 ```
 
 ---

@@ -1,12 +1,13 @@
-.PHONY: build invoke invoke-new-only test test-cov lint fmt clean
+.PHONY: build invoke invoke-new-only invoke-get-user-action-stats invoke-user-deleted test test-cov lint fmt clean
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Config
 # ──────────────────────────────────────────────────────────────────────────────
-STACK_NAME   ?= user-rewards-dev
-REGION       ?= us-east-1
-ENV          ?= dev
-FUNCTION     ?= UserRewardsConsumerFunction
+STACK_NAME        ?= user-rewards-dev
+REGION            ?= us-east-1
+ENV               ?= dev
+FUNCTION          ?= UserRewardsConsumerFunction
+CFM_HOSTED_ZONE_ID ?= 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SAM
@@ -16,14 +17,9 @@ FUNCTION     ?= UserRewardsConsumerFunction
 build:
 	sam build --use-container
 
-## Deploy to AWS (guided first-run; subsequent runs use samconfig.toml)
+## Deploy to AWS using samconfig.toml (ENV=dev|staging|prod)
 deploy:
-	sam deploy \
-		--stack-name $(STACK_NAME) \
-		--region $(REGION) \
-		--parameter-overrides Environment=$(ENV) \
-		--capabilities CAPABILITY_IAM \
-		--resolve-s3
+	sam deploy --config-env $(ENV)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Local invoke (requires Docker + AWS SAM CLI)
@@ -44,6 +40,20 @@ invoke-fridge-report-updated-new-only:
 		--parameter-overrides ParameterKey=DeploymentTarget,ParameterValue=local ParameterKey=Stage,ParameterValue=dev \
 		--docker-network cfm-network
 
+## Invoke GetUserActionStatsFunction locally
+invoke-get-user-action-stats:
+	sam local invoke GetUserActionStatsFunction \
+		--event events/get_user_action_stats.json \
+		--parameter-overrides ParameterKey=DeploymentTarget,ParameterValue=local ParameterKey=Environment,ParameterValue=dev \
+		--docker-network cfm-network
+
+## Invoke UserDeletionHandlerFunction locally
+invoke-user-deleted:
+	sam local invoke UserDeletionHandlerFunction \
+		--event events/user_deleted.json \
+		--parameter-overrides ParameterKey=DeploymentTarget,ParameterValue=local ParameterKey=Environment,ParameterValue=dev \
+		--docker-network cfm-network
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Testing
 # ──────────────────────────────────────────────────────────────────────────────
@@ -54,12 +64,14 @@ install:
 
 ## Run full unit-test suite
 test:
-	PYTHONPATH=functions/fridge_report_consumer pytest tests/ -v
+	PYTHONPATH=functions/fridge_report_consumer:functions/get_user_action_stats:functions/user_deletion_handler pytest tests/ -v
 
 ## Run tests with HTML coverage report
 test-cov:
-	PYTHONPATH=functions/fridge_report_consumer pytest tests/ -v \
+	PYTHONPATH=functions/fridge_report_consumer:functions/get_user_action_stats:functions/user_deletion_handler pytest tests/ -v \
 		--cov=functions/fridge_report_consumer \
+		--cov=functions/get_user_action_stats \
+		--cov=functions/user_deletion_handler \
 		--cov-report=term-missing \
 		--cov-report=html:htmlcov
 

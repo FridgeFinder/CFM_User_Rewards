@@ -11,7 +11,7 @@ Globals:
     Architectures:
       - x86_64
     Timeout: 30
-    MemorySize: 256
+    MemorySize: 512
     Environment:
       Variables:
         LOG_LEVEL: INFO
@@ -33,6 +33,9 @@ Parameters:
     AllowedValues:
       - local
       - aws
+  CFMHostedZoneId:
+    Type: String
+    Description: Hosted Zone ID from the Route53 console
 
 Resources:
 
@@ -46,23 +49,97 @@ Resources:
       MessageRetentionPeriod: 1209600   # 14 days
 
   # ──────────────────────────────────────────────────────────────
+  # ACM — SSL Certificate
+  # ──────────────────────────────────────────────────────────────
+  ApiCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub "user-rewards-api-${Environment}.communityfridgefinder.com"
+      DomainValidationOptions:
+        - DomainName: !Sub "user-rewards-api-${Environment}.communityfridgefinder.com"
+          HostedZoneId: !Ref CFMHostedZoneId
+      ValidationMethod: DNS
+
+  # ──────────────────────────────────────────────────────────────
+  # API Gateway — HTTP API
+  # ──────────────────────────────────────────────────────────────
+  UserHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+        AllowHeaders:
+          - Content-Type
+        AllowOrigins:
+          - '*'
+
+  # ──────────────────────────────────────────────────────────────
+  # Custom Domain — DNS + Mapping
+  # ──────────────────────────────────────────────────────────────
+  ApiDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Sub "user-rewards-api-${Environment}.communityfridgefinder.com"
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ApiCertificate
+          EndpointType: REGIONAL
+
+  ApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      DomainName: !Ref ApiDomainName
+      ApiId: !Ref UserHttpApi
+      Stage: !Ref UserHttpApi.Stage
+
+  ApiDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref CFMHostedZoneId
+      Name: !Sub "user-rewards-api-${Environment}.communityfridgefinder.com"
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiDomainName.RegionalDomainName
+        HostedZoneId: !GetAtt ApiDomainName.RegionalHostedZoneId
+
+  # ──────────────────────────────────────────────────────────────
+  # Lambda — Get User Action Stats
+  # ──────────────────────────────────────────────────────────────
+  GetUserActionStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "get-user-action-stats-${Environment}"
+      CodeUri: functions/get_user_action_stats/
+      Handler: app.handler
+      Description: Returns the UserActionStats record for a given userId.
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserActionStatsTable
+      Events:
+        GetUserActionStats:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UserHttpApi
+            Path: /v1/user-action-stats/{userId}
+            Method: get
+
+  # ──────────────────────────────────────────────────────────────
   # Lambda — Health Check Lambda Function
   # ──────────────────────────────────────────────────────────────
-
-  # HelloWorldFunction:
-  #   Type: AWS::Serverless::Function
-  #   Properties:
-  #     CodeUri: functions/hello_world/
-  #     Handler: app.lambda_handler
-  #     Events:
-  #       HelloWorld:
-  #         Type: HttpApi
-  #         Properties:
-  #           ApiId: !Ref UserHttpApi
-  #           Path: /hello
-  #           Method: get
-  #           Auth:
-  #             Authorizer: NONE  # Public endpoint for health checks
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "user-rewards-hello-${Environment}"
+      CodeUri: functions/hello_world/
+      Handler: app.lambda_handler
+      Events:
+        HelloWorld:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UserHttpApi
+            Path: /hello
+            Method: get
   # ──────────────────────────────────────────────────────────────
   # Lambda — Rewards Consumer
   # ──────────────────────────────────────────────────────────────
@@ -97,6 +174,50 @@ Resources:
             Pattern:
               detail-type:
                 - FridgeReportUpdated
+
+  # ──────────────────────────────────────────────────────────────
+  # Lambda — User Deletion Handler
+  # ──────────────────────────────────────────────────────────────
+  UserDeletionHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "user-rewards-deletion-handler-${Environment}"
+      CodeUri: functions/user_deletion_handler/
+      Handler: app.handler
+      Description: Cleans up reward data when a user is deleted.
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserPointsHistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserActionStatsTable
+
+  # ──────────────────────────────────────────────────────────────
+  # EventBridge — User Deletion Rule
+  # ──────────────────────────────────────────────────────────────
+  UserDeletionEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "user-rewards-deletion-cleanup-${Environment}"
+      Description: Triggers reward data cleanup when a user is deleted
+      EventBusName: !ImportValue
+        Fn::Sub: "user-service-${Environment}-EventBusName"
+      EventPattern:
+        source:
+          - user-service
+        detail-type:
+          - User Deleted
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt UserDeletionHandlerFunction.Arn
+          Id: UserDeletionHandlerTarget
+
+  UserDeletionEventRulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UserDeletionHandlerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt UserDeletionEventRule.Arn
 
   # ──────────────────────────────────────────────────────────────
   # DynamoDB — UserPointsHistory
@@ -146,20 +267,20 @@ Resources:
 
 
 Outputs:
-  UserPointsHistoryTableName:
-    Description: UserPointsHistory DynamoDB table name
-    Value: !Ref UserPointsHistoryTable
-    Export:
-      Name: !Sub "user_points_history_${Environment}"
-
-  UserActionStatsTableName:
-    Description: UserActionStats DynamoDB table name
-    Value: !Ref UserActionStatsTable
-    Export:
-      Name: !Sub "user_action_stats_${Environment}"
-
   RewardsConsumerDLQUrl:
     Description: URL of the Consumer DLQ
     Value: !Ref RewardsConsumerDLQ
     Export:
       Name: !Sub "${AWS::StackName}-DLQUrl"
+
+  UserRewardsApiBaseUrl:
+    Description: Base URL of the User Rewards API (custom domain)
+    Value: !Sub "https://user-rewards-api-${Environment}.communityfridgefinder.com/"
+
+  HelloWorldEndpoint:
+    Description: GET health check endpoint URL
+    Value: !Sub "https://user-rewards-api-${Environment}.communityfridgefinder.com/hello"
+
+  GetUserActionStatsEndpoint:
+    Description: GET user action stats endpoint URL
+    Value: !Sub "https://user-rewards-api-${Environment}.communityfridgefinder.com/v1/user-action-stats/{userId}"
