@@ -31,6 +31,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": 1762032699, 
             "condition": "cleaned", 
             "foodPercentage": 2,
+            "note":"deep cleaned the fridge and aided stocking efforts"
+
         }
         result = write_user_points_history(client, "test_table", "user1", "award1", newReportMock, awardListMock)
         assert result is True # first checking that the write returned true like the function specifies

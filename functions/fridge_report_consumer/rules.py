@@ -31,7 +31,8 @@ def parse_report(raw: str | None) -> StatusReport | None:
             epochTimestamp=int(data["epochTimestamp"]),
             condition=data["condition"],
             foodPercentage=int(data["foodPercentage"]),
-            userId=data.get("userId", None)
+            userId=data.get("userId", None), 
+            note=data.get("note", None)
         )
     except KeyError as e:
         raise ValueError(f"Validation Error: Missing mandatory field {e}") from e

@@ -17,6 +17,9 @@ def _from_dynamo_item(item: dict) -> dict:
 def get_user_action_stats(client, table_name: str, user_id: str) -> dict | None:
     """Fetch a single UserActionStats record by userId.
 
+
+
+    
     Returns the deserialised item, or None if not found.
     """
     response = client.get_item(

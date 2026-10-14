@@ -15,6 +15,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": 1762032699, 
             "condition": "good", 
             "foodPercentage": 75,
+            "note":"deep cleaned the fridge and aided stocking efforts"
+
         }
 
         result = get_fridge_report_awards(newReport, None)
@@ -30,6 +32,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": 1762032699,
             "condition": "dirty",
             "foodPercentage": 70,
+            "note":"deep cleaned the fridge and aided stocking efforts"
+
         }
 
         newReport: StatusReport = {
@@ -37,6 +41,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": 1762032699, 
             "condition": "good", 
             "foodPercentage": 75,
+            "note":"deep cleaned the fridge and aided stocking efforts"
+
         }
 
 
@@ -55,6 +61,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": 1762032699,
             "condition": "out of order",
             "foodPercentage": 70,
+            "note":"deep cleaned the fridge and aided stocking efforts"
+
         }
 
         newReport: StatusReport = {
@@ -62,6 +70,8 @@ class TestGetFridgeReportAwards:
             "epochTimestamp": 1762032699, 
             "condition": "good", 
             "foodPercentage": 75,
+            "note":"deep cleaned the fridge and aided stocking efforts"
+
         }
 
 
@@ -93,6 +103,7 @@ class TestGetFridgeReportAwards:
             "condition": "good",
             "foodPercentage": 50,
             "userId": "user1",
+            "note":"deep cleaned the fridge and aided stocking efforts"
 
         }
 
@@ -102,6 +113,7 @@ class TestGetFridgeReportAwards:
             "condition": "dirty",
             "foodPercentage": 0,
             "userId": "user1",
+            "note":"deep cleaned the fridge and aided stocking efforts"
 
         }
         result1 = parse_report(VALID_NEW_REPORT)

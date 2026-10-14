@@ -14,7 +14,6 @@ import logging
 import boto3
 
 from stats_queries import get_user_action_stats
-
 log = logging.getLogger(__name__)
 
 

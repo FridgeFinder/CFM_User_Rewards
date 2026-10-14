@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 class StatusReport(TypedDict):
     fridgeId: str
@@ -10,6 +10,7 @@ class StatusReport(TypedDict):
     condition: str
     foodPercentage: int
     userId: NotRequired[str]
+    note: NotRequired[str]
 
 class AwardResult(TypedDict):
     """Return type of get_award()."""
